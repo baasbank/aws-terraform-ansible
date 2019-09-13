@@ -1,5 +1,9 @@
+## IMPROVEMENTS
+# Use count for subnets and subnet<>route table Associations
+
+
 provider "aws" {
-  region = "${var.aws_region}"
+  region  = "${var.aws_region}"
   profile = "${var.aws_profile}"
 }
 
@@ -53,7 +57,7 @@ EOF
 # ********** VPC **********
 
 resource "aws_vpc" "wp_vpc" {
-  cidr_block = "${var.vpc_cidr}"
+  cidr_block           = "${var.vpc_cidr}"
   enable_dns_hostnames = true
   enable_dns_support   = true
 
@@ -81,7 +85,7 @@ resource "aws_route_table" "wp_public_rt" {
     cidr_block = "0.0.0.0/0"
     gateway_id = "${aws_internet_gateway.wp_internet_gateway.id}"
   }
-  
+
   tags = {
     Name = "wp_rt_public"
   }
@@ -98,10 +102,10 @@ resource "aws_default_route_table" "wp_private_rt" {
 # Subnets
 
 resource "aws_subnet" "wp_public1_subnet" {
-  vpc_id = "${aws_vpc.wp_vpc.id}"
-  cidr_block = "${var.cidrs["public1"]}"
+  vpc_id                  = "${aws_vpc.wp_vpc.id}"
+  cidr_block              = "${var.cidrs["public1"]}"
   map_public_ip_on_launch = true
-  availability_zone = "${data.aws_availability_zones.available.names[0]}"
+  availability_zone       = "${data.aws_availability_zones.available.names[0]}"
 
   tags = {
     Name = "wp_public1_subnet"
@@ -109,10 +113,10 @@ resource "aws_subnet" "wp_public1_subnet" {
 }
 
 resource "aws_subnet" "wp_public2_subnet" {
-  vpc_id = "${aws_vpc.wp_vpc.id}"
-  cidr_block = "${var.cidrs["public2"]}"
+  vpc_id                  = "${aws_vpc.wp_vpc.id}"
+  cidr_block              = "${var.cidrs["public2"]}"
   map_public_ip_on_launch = true
-  availability_zone = "${data.aws_availability_zones.available.names[1]}"
+  availability_zone       = "${data.aws_availability_zones.available.names[1]}"
 
   tags = {
     Name = "wp_public2_subnet"
@@ -120,10 +124,10 @@ resource "aws_subnet" "wp_public2_subnet" {
 }
 
 resource "aws_subnet" "wp_private1_subnet" {
-  vpc_id = "${aws_vpc.wp_vpc.id}"
-  cidr_block = "${var.cidrs["private1"]}"
+  vpc_id                  = "${aws_vpc.wp_vpc.id}"
+  cidr_block              = "${var.cidrs["private1"]}"
   map_public_ip_on_launch = false
-  availability_zone = "${data.aws_availability_zones.available.names[0]}"
+  availability_zone       = "${data.aws_availability_zones.available.names[0]}"
 
   tags = {
     Name = "wp_private1_subnet"
@@ -131,10 +135,10 @@ resource "aws_subnet" "wp_private1_subnet" {
 }
 
 resource "aws_subnet" "wp_private2_subnet" {
-  vpc_id = "${aws_vpc.wp_vpc.id}"
-  cidr_block = "${var.cidrs["private2"]}"
+  vpc_id                  = "${aws_vpc.wp_vpc.id}"
+  cidr_block              = "${var.cidrs["private2"]}"
   map_public_ip_on_launch = false
-  availability_zone = "${data.aws_availability_zones.available.names[1]}"
+  availability_zone       = "${data.aws_availability_zones.available.names[1]}"
 
   tags = {
     Name = "wp_private2_subnet"
@@ -142,10 +146,10 @@ resource "aws_subnet" "wp_private2_subnet" {
 }
 
 resource "aws_subnet" "wp_rds1_subnet" {
-  vpc_id = "${aws_vpc.wp_vpc.id}"
-  cidr_block = "${var.cidrs["rds1"]}"
+  vpc_id                  = "${aws_vpc.wp_vpc.id}"
+  cidr_block              = "${var.cidrs["rds1"]}"
   map_public_ip_on_launch = false
-  availability_zone = "${data.aws_availability_zones.available.names[0]}"
+  availability_zone       = "${data.aws_availability_zones.available.names[0]}"
 
   tags = {
     Name = "wp_rds1_subnet"
@@ -153,10 +157,10 @@ resource "aws_subnet" "wp_rds1_subnet" {
 }
 
 resource "aws_subnet" "wp_rds2_subnet" {
-  vpc_id = "${aws_vpc.wp_vpc.id}"
-  cidr_block = "${var.cidrs["rds2"]}"
+  vpc_id                  = "${aws_vpc.wp_vpc.id}"
+  cidr_block              = "${var.cidrs["rds2"]}"
   map_public_ip_on_launch = false
-  availability_zone = "${data.aws_availability_zones.available.names[1]}"
+  availability_zone       = "${data.aws_availability_zones.available.names[1]}"
 
   tags = {
     Name = "wp_rds2_subnet"
@@ -164,13 +168,49 @@ resource "aws_subnet" "wp_rds2_subnet" {
 }
 
 resource "aws_subnet" "wp_rds3_subnet" {
-  vpc_id = "${aws_vpc.wp_vpc.id}"
-  cidr_block = "${var.cidrs["rds3"]}"
+  vpc_id                  = "${aws_vpc.wp_vpc.id}"
+  cidr_block              = "${var.cidrs["rds3"]}"
   map_public_ip_on_launch = false
-  availability_zone = "${data.aws_availability_zones.available.names[2]}"
+  availability_zone       = "${data.aws_availability_zones.available.names[2]}"
 
   tags = {
     Name = "wp_rds3_subnet"
   }
 }
 
+# RDS Subnet Group
+
+resource "aws_db_subnet_group" "wp_rds_subnet" {
+  name = "wp_rds_subnetgroup"
+
+  subnet_ids = ["${aws_subnet.wp_rds1_subnet.id}",
+    "${aws_subnet.wp_rds2_subnet.id}",
+    "${aws_subnet.wp_rds2_subnet.id}"
+  ]
+
+  tags = {
+    name = "wp_rds_subnetgroup"
+  }
+}
+
+# Subnet-Route Table Associations
+
+resource "aws_route_table_association" "wp_public1_association" {
+  subnet_id      = "${aws_subnet.wp_public1_subnet.id}"
+  route_table_id = "${aws_route_table.wp_public_rt.id}"
+}
+
+resource "aws_route_table_association" "wp_public2_association" {
+  subnet_id      = "${aws_subnet.wp_public2_subnet.id}"
+  route_table_id = "${aws_route_table.wp_public_rt.id}"
+}
+
+resource "aws_route_table_association" "wp_private1_association" {
+  subnet_id      = "${aws_subnet.wp_private1_subnet.id}"
+  route_table_id = "${aws_default_route_table.wp_private_rt.id}"
+}
+
+resource "aws_route_table_association" "wp_private2_association" {
+  subnet_id      = "${aws_subnet.wp_private2_subnet.id}"
+  route_table_id = "${aws_default_route_table.wp_private_rt.id}"
+}
