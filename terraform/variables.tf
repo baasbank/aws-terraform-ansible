@@ -11,6 +11,11 @@ variable dev_instance_type {}
 variable dev_ami {}
 variable key_name {}
 variable public_key_path {}
+variable lb_tg_name {}
+variable elb_healthy_threshold {}
+variable elb_unhealthy_threshold {}
+variable elb_timeout {}
+variable elb_interval {}
 
 
 variable "cidrs" {
