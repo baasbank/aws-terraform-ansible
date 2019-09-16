@@ -476,3 +476,20 @@ EOF
 EOD
   }
 }
+
+# ********** AUTO-SCALING GROUP LAUNCH CONFIGURATION **********
+
+resource "aws_launch_configuration" "wp_launch_configuration" {
+  name_prefix = "wp_lc-"
+  image_id = aws_ami_from_instance.wp_golden.id
+  instance_type = var.lc_instance_type
+  security_groups = [aws_security_group.wp_private_sg.id]
+  iam_instance_profile = aws_iam_instance_profile.s3_access_profile.id
+  key_name = aws_key_pair.wp_keypair.id
+  user_data = file("userdata")
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
