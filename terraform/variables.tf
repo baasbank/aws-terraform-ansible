@@ -22,7 +22,7 @@ variable asg_min {}
 variable asg_grace {}
 variable asg_health_check_type {}
 variable asg_desired_capacity {}
-
+variable delegation_set {}
 
 variable "cidrs" {
   type = "map"

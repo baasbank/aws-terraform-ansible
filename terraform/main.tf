@@ -376,7 +376,7 @@ resource "aws_db_instance" "wp_db" {
 
 resource "aws_key_pair" "wp_keypair" {
   key_name   = var.key_name
-  public_key = chomp(file(var.public_key_path))
+  public_key = file(var.public_key_path)
 
 }
 
@@ -480,13 +480,13 @@ EOD
 # ********** AUTO-SCALING GROUP LAUNCH CONFIGURATION **********
 
 resource "aws_launch_configuration" "wp_launch_configuration" {
-  name_prefix = "wp_lc-"
-  image_id = aws_ami_from_instance.wp_golden.id
-  instance_type = var.lc_instance_type
-  security_groups = [aws_security_group.wp_private_sg.id]
+  name_prefix          = "wp_lc-"
+  image_id             = aws_ami_from_instance.wp_golden.id
+  instance_type        = var.lc_instance_type
+  security_groups      = [aws_security_group.wp_private_sg.id]
   iam_instance_profile = aws_iam_instance_profile.s3_access_profile.id
-  key_name = aws_key_pair.wp_keypair.id
-  user_data = file("userdata")
+  key_name             = aws_key_pair.wp_keypair.id
+  user_data            = file("userdata")
 
   lifecycle {
     create_before_destroy = true
@@ -496,14 +496,14 @@ resource "aws_launch_configuration" "wp_launch_configuration" {
 # ********** AUTO SCALING GROUP **********
 
 resource "aws_autoscaling_group" "wp_asg" {
-  name = "asg-${aws_launch_configuration.wp_launch_configuration.id}"
-  max_size = var.asg_max
-  min_size = var.asg_min
+  name                      = "asg-${aws_launch_configuration.wp_launch_configuration.id}"
+  max_size                  = var.asg_max
+  min_size                  = var.asg_min
   health_check_grace_period = var.asg_grace
-  health_check_type = var.asg_health_check_type
-  desired_capacity = var.asg_desired_capacity
-  force_delete = true
-  load_balancers = [aws_elb.wp_elb.id]
+  health_check_type         = var.asg_health_check_type
+  desired_capacity          = var.asg_desired_capacity
+  force_delete              = true
+  load_balancers            = [aws_elb.wp_elb.id]
 
   vpc_zone_identifier = [aws_subnet.wp_private1_subnet.id,
     aws_subnet.wp_private2_subnet.id
@@ -512,12 +512,61 @@ resource "aws_autoscaling_group" "wp_asg" {
   launch_configuration = aws_launch_configuration.wp_launch_configuration.name
 
   tag {
-    key = "Name"
-    value = "wp_asg-instance"
+    key                 = "Name"
+    value               = "wp_asg-instance"
     propagate_at_launch = true
   }
 
   lifecycle {
     create_before_destroy = true
   }
+}
+
+# ********** ROUTE 53 **********
+# Primary Zone
+
+resource "aws_route53_zone" "primary" {
+  name              = "${var.domain_name}.me"
+  delegation_set_id = var.delegation_set
+}
+
+# www
+
+resource "aws_route53_record" "www" {
+  zone_id = aws_route53_zone.primary.zone_id
+  name    = "www.${var.domain_name}.me"
+  type    = "A"
+
+  alias {
+    name                   = aws_elb.wp_elb.dns_name
+    zone_id                = aws_elb.wp_elb.zone_id
+    evaluate_target_health = false
+  }
+}
+
+# dev
+
+resource "aws_route53_record" "dev" {
+  zone_id = aws_route53_zone.primary.zone_id
+  name    = "dev.${var.domain_name}.me"
+  type    = "A"
+  ttl     = "300"
+  records = [aws_instance.wp_dev.public_ip]
+}
+
+# Private Zone
+
+resource "aws_route53_zone" "private" {
+  name   = "${var.domain_name}.me"
+  vpc_id = aws_vpc.wp_vpc.id
+}
+
+# DB Record 
+
+resource "aws_route53_record" "db" {
+  zone_id = aws_route53_zone.private.zone_id
+  name    = "db.${var.domain_name}.me"
+  type    = "CNAME"
+  ttl     = "300"
+  records = [aws_db_instance.wp_db.address]
 }
